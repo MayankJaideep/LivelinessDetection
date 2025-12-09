@@ -22,7 +22,7 @@ interface CameraFeedProps {
 export function CameraFeed({ onFaceDetected, isActive, showMesh = true }: CameraFeedProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const faceMeshRef = useRef<FaceMesh | null>(null);
+  const faceMeshRef = useRef<typeof FaceMesh | null>(null);
   const cameraRef = useRef<Camera | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
