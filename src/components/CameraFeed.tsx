@@ -1,8 +1,11 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { FaceMesh, Results } from '@mediapipe/face_mesh';
+import { FaceMesh as FaceMeshType, Results } from '@mediapipe/face_mesh';
 import { Camera } from '@mediapipe/camera_utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, Camera as CameraIcon, AlertCircle } from 'lucide-react';
+
+// Import FaceMesh constructor properly for production
+const FaceMesh = (window as any).FaceMesh || FaceMeshType;
 
 interface Point3D {
   x: number;

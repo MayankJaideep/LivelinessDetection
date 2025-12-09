@@ -1,27 +1,39 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LiveGuard - AI-Powered Liveness Detection</title>
-    <meta name="description" content="Secure identity verification with AI-powered liveness detection. Prevent fraud with real-time face analysis and spoof detection." />
-    <meta name="author" content="LiveGuard" />
-    <meta name="keywords" content="liveness detection, identity verification, face detection, anti-spoofing, biometric security" />
 
-    <meta property="og:title" content="LiveGuard - AI-Powered Liveness Detection" />
-    <meta property="og:description" content="Secure identity verification with AI-powered liveness detection. Prevent fraud with real-time face analysis." />
-    <meta property="og:type" content="website" />
-    <meta property="og:image" content="/logo.png" />
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/placeholder.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LiveGuard - Identity Verification</title>
 
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@LiveGuard" />
-    <meta name="twitter:image" content="/logo.png" />
-    
-    <link rel="canonical" href="https://liveguard.app" />
-  </head>
+  <!-- Load MediaPipe from CDN for production compatibility -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js"
+    crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1620248357/camera_utils.js"
+    crossorigin="anonymous"></script>
+  <meta name="description"
+    content="Secure identity verification with AI-powered liveness detection. Prevent fraud with real-time face analysis and spoof detection." />
+  <meta name="author" content="LiveGuard" />
+  <meta name="keywords"
+    content="liveness detection, identity verification, face detection, anti-spoofing, biometric security" />
 
-  <body class="dark">
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+  <meta property="og:title" content="LiveGuard - AI-Powered Liveness Detection" />
+  <meta property="og:description"
+    content="Secure identity verification with AI-powered liveness detection. Prevent fraud with real-time face analysis." />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="/logo.png" />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:site" content="@LiveGuard" />
+  <meta name="twitter:image" content="/logo.png" />
+
+  <link rel="canonical" href="https://liveguard.app" />
+</head>
+
+<body class="dark">
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
 </html>
