@@ -116,11 +116,19 @@ export function CameraFeed({ onFaceDetected, isActive, showMesh = true }: Camera
       try {
         setIsLoading(true);
         setError(null);
+        setCameraPermissionDenied(false);
+
+        // Check if getUserMedia is supported
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          setError('Camera not supported in this browser');
+          setIsLoading(false);
+          return;
+        }
 
         // Initialize FaceMesh with production-ready CDN
         const faceMesh = new FaceMesh({
           locateFile: (file) => {
-            // Use unpkg CDN for better reliability in production
+            // Use specific version for better reliability in production
             return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/${file}`;
           },
         });
@@ -135,7 +143,33 @@ export function CameraFeed({ onFaceDetected, isActive, showMesh = true }: Camera
         faceMesh.onResults(onResults);
         faceMeshRef.current = faceMesh;
 
-        // Initialize camera
+        // Request camera permission explicitly first
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              width: { ideal: 640 },
+              height: { ideal: 480 },
+              facingMode: 'user'
+            }
+          });
+
+          // Stop the test stream
+          stream.getTracks().forEach(track => track.stop());
+        } catch (permErr: any) {
+          console.error('Camera permission error:', permErr);
+          if (permErr.name === 'NotAllowedError' || permErr.name === 'PermissionDeniedError') {
+            setCameraPermissionDenied(true);
+            setError('Camera permission denied');
+          } else if (permErr.name === 'NotFoundError') {
+            setError('No camera found on this device');
+          } else {
+            setError('Failed to access camera: ' + permErr.message);
+          }
+          setIsLoading(false);
+          return;
+        }
+
+        // Initialize camera with MediaPipe
         if (videoRef.current) {
           const camera = new Camera(videoRef.current, {
             onFrame: async () => {
@@ -161,9 +195,13 @@ export function CameraFeed({ onFaceDetected, isActive, showMesh = true }: Camera
             setError('Camera permission denied');
           } else if (err.name === 'NotFoundError') {
             setError('No camera found');
+          } else if (err.message.includes('WASM') || err.message.includes('fetch')) {
+            setError('Failed to load face detection models. Please check your internet connection.');
           } else {
-            setError('Failed to initialize camera');
+            setError('Failed to initialize camera: ' + err.message);
           }
+        } else {
+          setError('Failed to initialize camera');
         }
         setIsLoading(false);
       }
