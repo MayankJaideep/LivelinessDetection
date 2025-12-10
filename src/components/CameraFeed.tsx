@@ -224,6 +224,17 @@ export function CameraFeed({ onFaceDetected, isActive, showMesh = true }: Camera
 
         // Initialize camera with MediaPipe Camera Utils
         if (videoRef.current) {
+          console.log('[CameraInit] Video ref exists');
+          console.log('[CameraInit] window.Camera:', window.Camera);
+          console.log('[CameraInit] window.Camera type:', typeof window.Camera);
+
+          if (typeof window.Camera !== 'function') {
+            console.error('[CameraInit] CRITICAL: window.Camera is not a function/constructor!', window.Camera);
+            setError('System error: Camera utility illegal state. Please refresh.');
+            setIsLoading(false);
+            return;
+          }
+
           const camera = new window.Camera(videoRef.current, {
             onFrame: async () => {
               if (faceMeshRef.current && videoRef.current) {
