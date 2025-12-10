@@ -1,10 +1,9 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { FaceMesh as FaceMeshType, Results } from '@mediapipe/face_mesh';
+import * as FaceMeshLib from '@mediapipe/face_mesh';
+import { Results } from '@mediapipe/face_mesh';
 import { Camera } from '@mediapipe/camera_utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, Camera as CameraIcon, AlertCircle } from 'lucide-react';
-
-
 
 interface Point3D {
   x: number;
@@ -21,7 +20,8 @@ interface CameraFeedProps {
 export function CameraFeed({ onFaceDetected, isActive, showMesh = true }: CameraFeedProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const faceMeshRef = useRef<FaceMeshType | null>(null);
+  // Use FaceMeshLib.FaceMesh for the type if available, otherwise any for now to be safe during debug
+  const faceMeshRef = useRef<FaceMeshLib.FaceMesh | null>(null);
   const cameraRef = useRef<Camera | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
@@ -120,14 +120,21 @@ export function CameraFeed({ onFaceDetected, isActive, showMesh = true }: Camera
         setError(null);
         setCameraPermissionDenied(false);
 
-        // Check if getUserMedia is supported
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
           setError('Camera not supported in this browser');
           setIsLoading(false);
           return;
         }
 
-        const faceMesh = new FaceMeshType({
+        console.log('FaceMeshLib exports:', FaceMeshLib);
+        // Explicitly access FaceMesh from the namespace object
+        const FaceMeshConstructor = FaceMeshLib.FaceMesh;
+        if (!FaceMeshConstructor) {
+          console.error('FaceMesh constructor not found in exports:', FaceMeshLib);
+          throw new Error('FaceMesh constructor is missing');
+        }
+
+        const faceMesh = new FaceMeshConstructor({
           locateFile: (file) => {
             return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/${file}`;
           },
