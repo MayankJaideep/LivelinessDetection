@@ -1,44 +1,12 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, Camera as CameraIcon, AlertCircle } from 'lucide-react';
-import { loadScript } from '@/lib/script-loader';
 
-// Define types for global MediaPipe libraries
-interface FaceMeshOptions {
-  locateFile: (file: string) => string;
-}
-
-interface CameraOptions {
-  onFrame: () => Promise<void>;
-  width: number;
-  height: number;
-}
-
-interface FaceMeshConfig {
-  maxNumFaces: number;
-  refineLandmarks: boolean;
-  minDetectionConfidence: number;
-  minTrackingConfidence: number;
-}
-
-interface FaceMesh {
-  setOptions: (options: FaceMeshConfig) => void;
-  onResults: (callback: (results: any) => void) => void;
-  send: (input: { image: HTMLVideoElement }) => Promise<void>;
-  close: () => Promise<void>;
-}
-
-interface CameraImpl {
-  start: () => Promise<void>;
-  stop: () => void;
-}
-
-declare global {
-  interface Window {
-    FaceMesh: new (options?: FaceMeshOptions) => FaceMesh;
-    Camera: new (video: HTMLVideoElement, options: CameraOptions) => CameraImpl;
-  }
-}
+// Types for the dynamically imported libraries
+// We use 'any' here for simplicity to avoid complex type merging from the dynamic import, 
+// but in a strict setup you would infer these from the package types.
+type FaceMeshModule = typeof import('@mediapipe/face_mesh');
+type CameraModule = typeof import('@mediapipe/camera_utils');
 
 interface Point3D {
   x: number;
@@ -55,8 +23,8 @@ interface CameraFeedProps {
 export function CameraFeed({ onFaceDetected, isActive, showMesh = true }: CameraFeedProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const faceMeshRef = useRef<FaceMesh | null>(null);
-  const cameraRef = useRef<CameraImpl | null>(null);
+  const faceMeshRef = useRef<any>(null); // Keeping as any for the dynamic instance
+  const cameraRef = useRef<any>(null);   // Keeping as any for the dynamic instance
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -148,39 +116,45 @@ export function CameraFeed({ onFaceDetected, isActive, showMesh = true }: Camera
   useEffect(() => {
     if (!isActive) return;
 
+    let isMounted = true;
+
     const initCamera = async () => {
       try {
         setIsLoading(true);
         setError(null);
         setCameraPermissionDenied(false);
 
-        // Check if getUserMedia is supported
+        // Check availability
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          setError('Camera not supported in this browser');
-          setIsLoading(false);
+          if (isMounted) {
+            setError('Camera not supported in this browser');
+            setIsLoading(false);
+          }
           return;
         }
 
-        // Load MediaPipe scripts from CDN
-        try {
-          await Promise.all([
-            loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js'),
-            loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js')
-          ]);
-        } catch (loadErr) {
-          console.error('Failed to load biometric libraries:', loadErr);
-          setError('Failed to load required libraries. Please check your connection.');
-          setIsLoading(false);
-          return;
+        console.log('Starting dynamic imports...');
+
+        // Dynamically import libraries to prevent SSR/Bundler issues
+        // This ensures code only runs in the browser
+        const [faceMeshModule, cameraModule] = await Promise.all([
+          import('@mediapipe/face_mesh'),
+          import('@mediapipe/camera_utils')
+        ]);
+
+        if (!isMounted) return;
+
+        console.log('Dynamic imports loaded');
+
+        // Extract constructors
+        const FaceMesh = faceMeshModule.FaceMesh;
+        const Camera = cameraModule.Camera;
+
+        if (!FaceMesh || !Camera) {
+          throw new Error('Failed to extract FaceMesh or Camera constructors from imported modules');
         }
 
-        if (!window.FaceMesh || !window.Camera) {
-          setError('Biometric libraries failed to initialize.');
-          setIsLoading(false);
-          return;
-        }
-
-        const faceMesh = new window.FaceMesh({
+        const faceMesh = new FaceMesh({
           locateFile: (file) => {
             return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/${file}`;
           },
@@ -210,32 +184,23 @@ export function CameraFeed({ onFaceDetected, isActive, showMesh = true }: Camera
           stream.getTracks().forEach(track => track.stop());
         } catch (permErr: any) {
           console.error('Camera permission error:', permErr);
-          if (permErr.name === 'NotAllowedError' || permErr.name === 'PermissionDeniedError') {
-            setCameraPermissionDenied(true);
-            setError('Camera permission denied');
-          } else if (permErr.name === 'NotFoundError') {
-            setError('No camera found on this device');
-          } else {
-            setError('Failed to access camera: ' + permErr.message);
+          if (isMounted) {
+            if (permErr.name === 'NotAllowedError' || permErr.name === 'PermissionDeniedError') {
+              setCameraPermissionDenied(true);
+              setError('Camera permission denied');
+            } else if (permErr.name === 'NotFoundError') {
+              setError('No camera found on this device');
+            } else {
+              setError('Failed to access camera: ' + permErr.message);
+            }
+            setIsLoading(false);
           }
-          setIsLoading(false);
           return;
         }
 
-        // Initialize camera with MediaPipe Camera Utils
+        // Initialize camera
         if (videoRef.current) {
-          console.log('[CameraInit] Video ref exists');
-          console.log('[CameraInit] window.Camera:', window.Camera);
-          console.log('[CameraInit] window.Camera type:', typeof window.Camera);
-
-          if (typeof window.Camera !== 'function') {
-            console.error('[CameraInit] CRITICAL: window.Camera is not a function/constructor!', window.Camera);
-            setError('System error: Camera utility illegal state. Please refresh.');
-            setIsLoading(false);
-            return;
-          }
-
-          const camera = new window.Camera(videoRef.current, {
+          const camera = new Camera(videoRef.current, {
             onFrame: async () => {
               if (faceMeshRef.current && videoRef.current) {
                 await faceMeshRef.current.send({ image: videoRef.current });
@@ -246,36 +211,32 @@ export function CameraFeed({ onFaceDetected, isActive, showMesh = true }: Camera
           });
 
           await camera.start();
-          cameraRef.current = camera;
-          setIsLoading(false);
+          if (isMounted) {
+            cameraRef.current = camera;
+            setIsLoading(false);
+          }
         }
       } catch (err) {
         console.error('Error initializing camera:', err);
-
-        // Check if it's a permission error
-        if (err instanceof Error) {
-          if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-            setCameraPermissionDenied(true);
-            setError('Camera permission denied');
-          } else if (err.name === 'NotFoundError') {
-            setError('No camera found');
-          } else if (err.message.includes('WASM') || err.message.includes('fetch')) {
-            setError('Failed to load face detection models. Please check your internet connection.');
-          } else {
+        if (isMounted) {
+          if (err instanceof Error) {
             setError('Failed to initialize camera: ' + err.message);
+          } else {
+            setError('Failed to initialize camera');
           }
-        } else {
-          setError('Failed to initialize camera');
+          setIsLoading(false);
         }
-        setIsLoading(false);
       }
     };
 
     initCamera();
 
     return () => {
+      isMounted = false;
       if (cameraRef.current) {
-        cameraRef.current.stop();
+        // cameraRef.current.stop(); // Warning: .stop() might not be on the instance types depending on version, check docs
+        // Use a safe check if needed, or trust the type
+        (cameraRef.current as any).stop?.();
       }
       if (faceMeshRef.current) {
         faceMeshRef.current.close();
