@@ -4,8 +4,7 @@ import { Camera } from '@mediapipe/camera_utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, Camera as CameraIcon, AlertCircle } from 'lucide-react';
 
-// Import FaceMesh constructor properly for production
-const FaceMesh = (window as any).FaceMesh || FaceMeshType;
+
 
 interface Point3D {
   x: number;
@@ -22,7 +21,7 @@ interface CameraFeedProps {
 export function CameraFeed({ onFaceDetected, isActive, showMesh = true }: CameraFeedProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const faceMeshRef = useRef<typeof FaceMesh | null>(null);
+  const faceMeshRef = useRef<FaceMeshType | null>(null);
   const cameraRef = useRef<Camera | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
@@ -128,24 +127,8 @@ export function CameraFeed({ onFaceDetected, isActive, showMesh = true }: Camera
           return;
         }
 
-        // Wait for MediaPipe to load from CDN
-        let attempts = 0;
-        while (!(window as any).FaceMesh && attempts < 50) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-          attempts++;
-        }
-
-        if (!(window as any).FaceMesh) {
-          setError('Failed to load face detection library. Please refresh the page.');
-          setIsLoading(false);
-          return;
-        }
-
-        // Use the global FaceMesh constructor
-        const FaceMeshConstructor = (window as any).FaceMesh;
-        const faceMesh = new FaceMeshConstructor({
-          locateFile: (file: string) => {
-            // Use specific version for better reliability in production
+        const faceMesh = new FaceMeshType({
+          locateFile: (file) => {
             return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/${file}`;
           },
         });
@@ -188,8 +171,7 @@ export function CameraFeed({ onFaceDetected, isActive, showMesh = true }: Camera
 
         // Initialize camera with MediaPipe
         if (videoRef.current) {
-          const CameraConstructor = (window as any).Camera;
-          const camera = new CameraConstructor(videoRef.current, {
+          const camera = new Camera(videoRef.current, {
             onFrame: async () => {
               if (faceMeshRef.current && videoRef.current) {
                 await faceMeshRef.current.send({ image: videoRef.current });
